@@ -3,17 +3,18 @@ KU-2024-CGIP-HW4-2
 
 - Coputer Graphics and Image Processing Homework 4 Flat shading
 
-- °³¹ß È¯°æ
+- ê°œë°œ í™˜ê²½
   - Windows / x86
   - Visual Studio 2022
   - GLUT 3.2
   - C++
   - CMake
 
-- ºôµå
-  - ¼Ò½º °æ·Î¿¡¼­ CMake ºôµå
+- ë¹Œë“œ
+  - ì†ŒìŠ¤ ê²½ë¡œì—ì„œ CMake ë¹Œë“œ
   - cmake -S . -B ./build -G "Visual Studio 17 2022" -A Win32
   - cmake --build ./build --config Release
-  - ./build/Release/KU-2024-CGIP-HW4-2.exe ½ÇÇà
+  - ./build/Release/KU-2024-CGIP-HW4-2.exe ì‹¤í–‰
  
 - Flat shading
+<img width="541" alt="á„‰á…³á„á…³á„…á…µá†«á„‰á…£á†º 2024-05-01 á„‹á…©á„’á…® 2 34 26" src="https://github.com/j3566/KU-2024-CGIP-HW4-2/assets/54254599/2e96e78b-c26b-44ea-940f-3d975a9a68d6">
