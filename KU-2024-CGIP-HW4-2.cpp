@@ -108,6 +108,7 @@ int gNumVertices = 0;    // Number of 3D vertices.
 int gNumTriangles = 0;    // Number of triangles.
 int* gIndexBuffer = NULL; // Vertex indices for the triangles.
 Vec3* gVertexBuffer = NULL; // Array for vertices
+Vec3* gTransformedVertexBuffer = NULL; // Array for vertices
 
 Vec3* gPixels = new Vec3[gWidth * gHeight];
 
@@ -131,6 +132,16 @@ float gViewportTransformMatrix[4][4] = {
     {0, 0, (gF - gN) / 2.0f, (gF + gN) / 2.0f},
     {0, 0, 0, 1}
 };
+
+Vec3 gKa = Vec3(0, 1, 0);     
+Vec3 gKd = Vec3(0, 0.5, 0);     
+Vec3 gKs = Vec3(0.5, 0.5, 0.5); 
+float gP = 32;                  
+
+Vec3 gLightPosition = Vec3(-4, 4, -3); 
+Vec3 gLightIntensity = Vec3(1, 1, 1); 
+float gIa = 0.2;                 
+float gGamma = 2.2;                
 
 void createScene()
 {
@@ -219,24 +230,27 @@ void createScene()
     // Java, etc.) If your language uses 1-based indexing, you will have to
     // add 1 to k0, k1, and k2.
 
+    gTransformedVertexBuffer = new Vec3[gNumVertices];
 
     for (int i = 0, l = gNumVertices; i < l; i++) {
 
         Vec4 vec4 = Vec4(gVertexBuffer[i].x, gVertexBuffer[i].y, gVertexBuffer[i].z) * gPerspectiveProjectionMatrix;
 
-        gVertexBuffer[i].x = vec4.x / vec4.w;
-        gVertexBuffer[i].y = vec4.y / vec4.w;
-        gVertexBuffer[i].z = vec4.z / vec4.w;
+        gTransformedVertexBuffer[i].x = vec4.x / vec4.w;
+        gTransformedVertexBuffer[i].y = vec4.y / vec4.w;
+        gTransformedVertexBuffer[i].z = vec4.z / vec4.w;
     }
 
     for (int i = 0, l = gNumVertices; i < l; i++) {
 
-        Vec4 vec4 = Vec4(gVertexBuffer[i].x, gVertexBuffer[i].y, gVertexBuffer[i].z) * gViewportTransformMatrix;
+        Vec4 vec4 = Vec4(gTransformedVertexBuffer[i].x, gTransformedVertexBuffer[i].y, gTransformedVertexBuffer[i].z) * gViewportTransformMatrix;
 
-        gVertexBuffer[i].x = vec4.x / vec4.w;
-        gVertexBuffer[i].y = vec4.y / vec4.w;
-        gVertexBuffer[i].z = vec4.z / vec4.w;
+        gTransformedVertexBuffer[i].x = vec4.x / vec4.w;
+        gTransformedVertexBuffer[i].y = vec4.y / vec4.w;
+        gTransformedVertexBuffer[i].z = vec4.z / vec4.w;
     }
+
+     
 }
 
 
@@ -263,19 +277,50 @@ Vec3 getBarycentricCoords(const Vec3& p, const Vec3& a, const Vec3& b, const Vec
 }
 
 
+void setColor(int x, int y, const Vec3& color )
+{
+    gPixels[(gHeight - 1 - y) * gWidth + (gWidth - 1 - x)] = color;
+}
+
 void render() {
+
+    float* zBuffer = new float[gWidth * gHeight];
+    for ( int i =0 ,l = gWidth * gHeight; i < l; i++ ) {
+        zBuffer[i] = numeric_limits<float>::max();
+    }
 
     for (int i = 0; i < gNumTriangles; i++) {
 
-    	const Vec3& v0 = gVertexBuffer[gIndexBuffer[i * 3 + 0]];
-        const Vec3& v1 = gVertexBuffer[gIndexBuffer[i * 3 + 1]];
-        const Vec3& v2 = gVertexBuffer[gIndexBuffer[i * 3 + 2]];
+        // Position
+    	const Vec3& v0 = gTransformedVertexBuffer[gIndexBuffer[i * 3 + 0]];
+        const Vec3& v1 = gTransformedVertexBuffer[gIndexBuffer[i * 3 + 1]];
+        const Vec3& v2 = gTransformedVertexBuffer[gIndexBuffer[i * 3 + 2]];
 
         int minX = max(0, (int)min({ v0.x, v1.x, v2.x }));
         int maxX = min(gWidth - 1, (int)max({ v0.x, v1.x, v2.x }));
 
         int minY = max(0, (int)min({ v0.y, v1.y, v2.y }));
         int maxY = min(gHeight - 1, (int)max({ v0.y, v1.y, v2.y }));
+
+
+        // Color
+        const Vec3& ov0 = gVertexBuffer[gIndexBuffer[i * 3 + 0]];
+        const Vec3& ov1 = gVertexBuffer[gIndexBuffer[i * 3 + 1]];
+        const Vec3& ov2 = gVertexBuffer[gIndexBuffer[i * 3 + 2]];
+
+        Vec3 normal = (ov1 - ov0).cross(ov2 - ov0).normalize();
+        Vec3 centroid = (ov0 + ov1 + ov2) / 3.0f;
+        Vec3 mcentroid = Vec3(-centroid.x, -centroid.y, -centroid.z);
+
+        Vec3 ambient = gKa * gIa;
+        Vec3 lightDir = (gLightPosition - centroid).normalize();
+        Vec3 diffuse = gKd * max(normal.dot(lightDir), 0.0f) * gLightIntensity;
+        Vec3 viewDir = mcentroid.normalize();
+        Vec3 reflectDir = (2.0f * normal.dot(lightDir) * normal - lightDir).normalize();
+        Vec3 specular = gKs * pow(max(viewDir.dot(reflectDir), 0.0f), gP) * gLightIntensity;
+
+        Vec3 color = ambient + diffuse + specular;
+        color = Vec3(pow(color.x, 1.0 / gGamma), pow(color.y, 1.0 / gGamma), pow(color.z, 1.0 / gGamma));
 
         for (int x = minX; x <= maxX; x++) {
             for (int y = minY; y <= maxY; y++) {
@@ -290,7 +335,15 @@ void render() {
                 if (barycentricCoords.x >= 0 && barycentricCoords.y >= 0 && barycentricCoords.z >= 0) {
 
                     int idx = y * gWidth + x;
-                    gPixels[idx] = Vec3(1, 1, 1);
+
+                    float z = barycentricCoords.x * v0.z + barycentricCoords.y * v1.z + barycentricCoords.z * v2.z;
+
+                    if (zBuffer[idx] > z )
+                    {
+                        zBuffer[idx] = z;
+
+                        setColor(x, y, color);
+                    }
                 }
             }
         }
@@ -318,7 +371,7 @@ int main(int argc, char** argv) {
     glutInitWindowSize(gWidth, gHeight);
     glutInitWindowPosition(100, 100);
 
-    glutCreateWindow("HW4 TNR");
+    glutCreateWindow("HW4 Flat Shading");
 
     createScene();
 
